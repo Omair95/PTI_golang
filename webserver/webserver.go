@@ -8,6 +8,9 @@ import (
         "encoding/json"
     "io"
     "io/ioutil"
+	"encoding/csv"
+	"os"
+	"bufio"
     ) 
 
 type ResponseMessage struct {
@@ -34,6 +37,7 @@ router.HandleFunc("/", Index)
 router.HandleFunc("/endpoint/{param}", endpointFunc)
 router.HandleFunc("/endpoint2/{param}", endpointFunc2JSONInput)
 router.HandleFunc("/carrental", carRequestFunc)
+router.HandleFunc("/list", readFromFile)
 
 log.Fatal(http.ListenAndServe(":8080", router))
 }
@@ -88,6 +92,42 @@ func carRequestFunc(w http.ResponseWriter, r *http.Request) {
         }
     } else {
 		price = carRequestMessage.NDays * carRequestMessage.NUnits * 54
+		writeToFile(carRequestMessage, w)
         fmt.Fprintln(w, "Successfully received request with price =", price)
+    }
+}
+
+func writeToFile(carRequestMessage CarRequestMessage, w http.ResponseWriter) {
+    file, err := os.OpenFile("rentals.csv", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+    if err := json.NewEncoder(w).Encode(err); err != nil {
+        json.NewEncoder(w).Encode(err)
+        return
+    }
+    writer := csv.NewWriter(file)
+    var data1 = []string{carRequestMessage.CarMaker, carRequestMessage.CarModel}
+    writer.Write(data1)
+    writer.Flush()
+    file.Close()
+}
+
+func readFromFile(w http.ResponseWriter, r *http.Request) {
+	readFile(w)
+}
+
+func readFile(w http.ResponseWriter) {
+	file, err := os.Open("rentals.csv")
+    if err!=nil {
+    json.NewEncoder(w).Encode(err)
+    return
+    }
+    reader := csv.NewReader(bufio.NewReader(file))
+    for {
+        record, err := reader.Read()
+        if err == io.EOF {
+                break
+            }
+            fmt.Fprintf(w, "Car Maker: %q", record[0])
+			fmt.Fprintf(w, " Car Model: %q\n", record[1])
+
     }
 }
